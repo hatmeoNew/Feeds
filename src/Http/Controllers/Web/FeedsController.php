@@ -49,6 +49,7 @@ class FeedsController extends Controller
                 'title' => $product->name,
                 'description' => $product->description,
                 'link' => config('services.shop.url') .'/products/'. $product->url_key,
+                'categories' => [config('onebuy.brand')],
                 'image_link' => $image_url,
                 'price' => $product->price,
                 'availability' => $product->isSaleable() ? 'in stock' : 'out of stock'
