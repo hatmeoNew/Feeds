@@ -102,6 +102,7 @@ class FeedsServiceProvider extends ServiceProvider
             $this->commands([
                 \NexaMerchant\Feeds\Console\Commands\Install::class,
                 \NexaMerchant\Feeds\Console\Commands\UnInstall::class,
+                \NexaMerchant\Feeds\Console\Commands\Klaviyo\Push::class,
             ]);
         }
     }

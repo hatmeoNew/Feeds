@@ -39,7 +39,7 @@ class FeedsController extends Controller
     public function klaviyo(Request $request)
     {
         //
-        $products = Product::where('type', 'configurable')->orderBy("updated_at","desc")->limit(10)->get();
+        $products = Product::where('type', 'configurable')->orderBy("updated_at","desc")->limit(30)->get();
         $items = [];
         foreach($products as $key => $product) {
             $image_url = $product->images->first() ? $product->images->first()->url : '';
