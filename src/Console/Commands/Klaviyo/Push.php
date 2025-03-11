@@ -48,7 +48,7 @@ class Push extends Command
         //var_dump($emaillist);exit;
 
 
-        $orders = Order::select(['customer_email','customer_first_name','customer_last_name','id'])->orderBy("id", "DESC")->limit(100)->get();
+        $orders = Order::select(['customer_email','customer_first_name','customer_last_name','id'])->orderBy("id", "DESC")->limit(1000)->get();
         $client = new \GuzzleHttp\Client();
         foreach($orders as $order) {
             //$customer = $order->customer_email;
@@ -58,6 +58,9 @@ class Push extends Command
             //$order->customer_email = 'nice.lizhi@gmail.com';
 
             $profile = $this->profile($order->customer_email, $order->customer_first_name, $order->customer_last_name);
+            if(!$profile) {
+                continue;
+            }
             var_dump($profile);
             // add profile to list
 
@@ -129,6 +132,10 @@ class Push extends Command
 
     
     public function profile($email, $first_name, $last_name) {
+        // if the profile email is not a valid email address, the request will fail
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return false;
+        }
         $this->info('Pushing profile to Klaviyo...'.$email);
         $client = new \GuzzleHttp\Client();
         $query = [

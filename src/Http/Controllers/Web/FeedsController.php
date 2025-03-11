@@ -45,7 +45,7 @@ class FeedsController extends Controller
             $image_url = $product->images->first() ? $product->images->first()->url : '';
             $image_url = str_replace(config('app.url').'/storage/'.config('app.url').'/storage/', config('app.url') . '/storage/', $image_url);
             $item = [
-                'id' => $product->id,
+                'id' => config('onebuy.brand').'#'.$product->id,
                 'title' => $product->name,
                 'description' => $product->description,
                 'link' => config('services.shop.url') .'/products/'. $product->url_key,
