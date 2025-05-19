@@ -16,30 +16,31 @@ class FeedsController extends Controller
         protected ProductRepository $productRepository
     )
     {
-        
+
     }
     // generate by json for klaviyo
     public function atom(Request $request)
     {
-        // 
+        //
         $products = $this->productRepository->all();
 
 
     }
 
     /**
-     * 
+     *
      * @param Request $request
-     * 
-     * 
+     *
+     *
      * @link https://github.com/klaviyo/devportal/blob/master/custom_catalog_example.json
      * @return \Illuminate\Http\JsonResponse
-     * 
+     *
      */
     public function klaviyo(Request $request)
     {
         //
-        $products = Product::where('type', 'configurable')->orderBy("updated_at","desc")->limit(30)->get();
+        $limit = $request->get('limit', 30);
+        $products = Product::where('type', 'configurable')->orderBy("updated_at","desc")->limit($limit)->get();
         $items = [];
         foreach($products as $key => $product) {
             $image_url = $product->images->first() ? $product->images->first()->url : '';
@@ -60,7 +61,7 @@ class FeedsController extends Controller
         return response()->json($items);
     }
 
-    
 
-    
+
+
 }
