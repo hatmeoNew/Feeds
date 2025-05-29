@@ -75,25 +75,28 @@ class Push extends Command
             // $this->info('Pushing order to Klaviyo...');
             //$order->customer_email = 'nice.lizhi@gmail.com';
 
-            $profile = $this->profile($order->customer_email, $order->customer_first_name, $order->customer_last_name);
-            if (!$profile) {
-                dump('Profile not found for email: ' . $order->customer_email);
-                continue;
+            try  {
+                $profile = $this->profile($order->customer_email, $order->customer_first_name, $order->customer_last_name);
+                if (!$profile) {
+                    dump('Profile not found for email: ' . $order->customer_email);
+                    continue;
+                }
+
+                $profile_id = isset($profile['data']['id']) ? $profile['data']['id'] : $profile['data'][0]['id'];
+
+                $response = $client->request('POST', 'https://a.klaviyo.com/api/lists/' . $emaillist[0]['id'] . '/relationships/profiles', [
+                    'body' => '{"data":[{"type":"profile","id":"' . $profile_id . '"}]}',
+                    'headers' => [
+                        'Authorization' => 'Klaviyo-API-Key ' . config('mail.mailers.klaviyo.api_key'),
+                        'accept' => 'application/vnd.api+json',
+                        'content-type' => 'application/vnd.api+json',
+                        'revision' => $this->revision,
+                    ],
+                ]);
+            } catch (\Exception $e) {
+                // $this->error('Error: ' . $e->getMessage());
+                dump($e->getMessage());
             }
-            // var_dump($profile);
-            // add profile to list
-
-            $profile_id = isset($profile['data']['id']) ? $profile['data']['id'] : $profile['data'][0]['id'];
-
-            $response = $client->request('POST', 'https://a.klaviyo.com/api/lists/' . $emaillist[0]['id'] . '/relationships/profiles', [
-                'body' => '{"data":[{"type":"profile","id":"' . $profile_id . '"}]}',
-                'headers' => [
-                    'Authorization' => 'Klaviyo-API-Key ' . config('mail.mailers.klaviyo.api_key'),
-                    'accept' => 'application/vnd.api+json',
-                    'content-type' => 'application/vnd.api+json',
-                    'revision' => $this->revision,
-                ],
-            ]);
 
             //   echo $response->getBody();
 
