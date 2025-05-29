@@ -22,6 +22,8 @@ class Push extends Command
      */
     protected $description = 'Push products to Klaviyo';
 
+    protected $revision = '2025-04-15';
+
     /**
      * Create a new command instance.
      *
@@ -89,7 +91,7 @@ class Push extends Command
                     'Authorization' => 'Klaviyo-API-Key ' . config('mail.mailers.klaviyo.api_key'),
                     'accept' => 'application/vnd.api+json',
                     'content-type' => 'application/vnd.api+json',
-                    'revision' => '2025-04-15',
+                    'revision' => $this->revision,
                 ],
             ]);
 
@@ -105,14 +107,13 @@ class Push extends Command
     {
         $client = new \GuzzleHttp\Client();
         $query = [
-            //'filter' => 'equals(name, ' . $name . ')'
             'filter' => 'equals(name,"' . $name . '")'
         ];
         $response = $client->request('GET', 'https://a.klaviyo.com/api/lists', [
             'headers' => [
                 'Authorization' => 'Klaviyo-API-Key ' . config('mail.mailers.klaviyo.api_key'),
                 'Accept'        => 'application/vnd.api+json',
-                'Revision'      => '2025-01-15',
+                'Revision'      => $this->revision,
             ],
             'query' => $query
         ]);
@@ -124,7 +125,6 @@ class Push extends Command
         });
 
         if (!empty($found)) {
-            // var_dump($found);
             return $found;
         }
 
@@ -134,7 +134,7 @@ class Push extends Command
                 'Authorization' => 'Klaviyo-API-Key ' . config('mail.mailers.klaviyo.api_key'),
                 'accept' => 'application/vnd.api+json',
                 'content-type' => 'application/vnd.api+json',
-                'revision' => '2025-01-15',
+                'revision' => $this->revision,
             ],
         ]);
 
@@ -159,7 +159,7 @@ class Push extends Command
                 'Authorization' => 'Klaviyo-API-Key ' . config('mail.mailers.klaviyo.api_key'),
                 'accept' => 'application/vnd.api+json',
                 'content-type' => 'application/vnd.api+json',
-                'revision' => '2025-01-15',
+                'revision' => $this->revision,
             ],
             'query' => $query
         ]);
