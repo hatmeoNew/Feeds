@@ -41,25 +41,15 @@ class Push extends Command
      */
     public function handle()
     {
-        // $this->info('Pushing products to Klaviyo...');
-        // sync customers to klaviyo
         $this->info('Pushing customers to Klaviyo...');
 
-        // var_dump(config('mail.mailers.klaviyo.api_key'));
-        $brandMapping = $this->getBrandMapping();
-        if (!isset($brandMapping[config('onebuy.brand')])) {
-            $this->error('Brand not found in mapping: ' . config('onebuy.brand'));
-            return 1;
-        }
-        $emaillist = $this->createEmailList($brandMapping[config('onebuy.brand')]);
-        //var_dump($emaillist);exit;
+        $brandName = $this->getBrandMapping();
+        $emaillist = $this->createEmailList($brandName);
 
         $orderQuery = Order::select(['customer_email', 'customer_first_name', 'customer_last_name', 'id']);
         if ($this->argument('order_id')) {
             $orderQuery->where('id', $this->argument('order_id'));
         }
-        // $orderQuery->orderBy("id", "DESC")->limit(10);
-        // $orders = Order::select(['customer_email','customer_first_name','customer_last_name','id'])->orderBy("id", "DESC")->limit(1000)->get();
         $orders = $orderQuery->get();
         if ($orders->isEmpty()) {
             $this->info('No orders found.');
@@ -69,12 +59,6 @@ class Push extends Command
         $total = count($orders);
         foreach ($orders as $k => $order) {
             $this->info('Pushing order ' . $k . '/' . $total . ' ' . $order->customer_email);
-            //$customer = $order->customer_email;
-
-            // post to klaviyo
-            // $this->info('Pushing order to Klaviyo...');
-            //$order->customer_email = 'nice.lizhi@gmail.com';
-
             try  {
                 $profile = $this->profile($order->customer_email, $order->customer_first_name, $order->customer_last_name);
                 if (!$profile) {
@@ -94,14 +78,8 @@ class Push extends Command
                     ],
                 ]);
             } catch (\Exception $e) {
-                // $this->error('Error: ' . $e->getMessage());
                 dump($e->getMessage());
             }
-
-            //   echo $response->getBody();
-
-            //exit;
-            // sleep(1);
         }
     }
 
@@ -188,39 +166,41 @@ class Push extends Command
 
     public function getBrandMapping()
     {
-        return [
-            'HatmeHU' => 'HatmeHU',
-            'KundiesCZ' => 'KundiesCZ',
-            'KundiesPL' => 'KundiesPL',
+        $mapping = [
+            // 'HatmeHU' => 'HatmeHU',
+            // 'KundiesCZ' => 'KundiesCZ',
+            // 'KundiesPL' => 'KundiesPL',
             'MqqhotCZ' => '捷克综合站Mqqhot.com',
-            'OthshoeCZ' => 'OthshoeCZ',
-            'OthshoePl' => 'OthshoePl',
+            // 'OthshoeCZ' => 'OthshoeCZ',
+            // 'OthshoePl' => 'OthshoePl',
             'SedyesPL' => '波兰综合站Sedyes.com',
-            'ROCOD' => 'ROCOD',
-            'WmbhSK' => 'WmbhSK',
-            'BotmaFR' => 'BotmaFR',
-            'GofreiDE' => 'GofreiDE',
+            // 'ROCOD' => 'ROCOD',
+            // 'WmbhSK' => 'WmbhSK',
+            // 'BotmaFR' => 'BotmaFR',
+            // 'GofreiDE' => 'GofreiDE',
             'HatmeDE' => '德国综合站hatme.de',
-            'HautotoolDE' => 'HautotoolDE',
+            // 'HautotoolDE' => 'HautotoolDE',
             'KundiesDE' => '德国内衣站kundies.de',
             'OthshoeDE' => '德国鞋子站othshoe.de',
             'OthshoeUK' => '英国鞋子站othshoe.uk',
             'WmbhUK' => '英国内衣站wmbh.uk',
-            'WmbraDE' => 'WmbraDE',
-            'Wmbrashop' => 'Wmbrashop',
-            'WmbraUk' => 'WmbraUk',
-            'WmcerES' => 'WmcerES',
-            'WngiftDE' => 'WngiftDE',
+            // 'WmbraDE' => 'WmbraDE',
+            // 'Wmbrashop' => 'Wmbrashop',
+            // 'WmbraUk' => 'WmbraUk',
+            // 'WmcerES' => 'WmcerES',
+            // 'WngiftDE' => 'WngiftDE',
             'YooJeUK' => '英国综合站yooje.uk',
-            'HatmeAT' => 'HatmeAT',
-            'WmcerESCOD' => 'WmcerESCOD',
-            'WmcerIT' => 'WmcerIT',
+            // 'HatmeAT' => 'HatmeAT',
+            // 'WmcerESCOD' => 'WmcerESCOD',
+            // 'WmcerIT' => 'WmcerIT',
             'Hatmeo' => '美国综合站hatmeo.com',
-            'HatmeoNet' => 'HatmeoNet',
-            'Hautotool' => 'Hautotool',
+            // 'HatmeoNet' => 'HatmeoNet',
+            // 'Hautotool' => 'Hautotool',
             'Kundies' => '美国内衣站kundies.com',
             'Othshoe' => '美国鞋子站othshoe.com',
-            'Wngift' => 'Wngift',
+            // 'Wngift' => 'Wngift',
         ];
+
+        return $mapping[config('onebuy.brand')] ?? config('onebuy.brand');
     }
 }
