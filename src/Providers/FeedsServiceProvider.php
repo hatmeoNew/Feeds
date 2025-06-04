@@ -1,11 +1,11 @@
 <?php
 /**
- * 
+ *
  * This file is auto generate by Nicelizhi\Apps\Commands\Create
  * @author Steve
  * @date 2024-08-09 17:05:18
  * @link https://github.com/xxxl4
- * 
+ *
  */
 namespace NexaMerchant\Feeds\Providers;
 
@@ -37,7 +37,7 @@ class FeedsServiceProvider extends ServiceProvider
         $this->loadViewsFrom(__DIR__ . '/../Resources/views', 'Feeds');
 
         $this->loadMigrationsFrom(__DIR__ . '/../Database/Migrations');
-        
+
 
         /*
         $this->app->register(EventServiceProvider::class);
@@ -79,7 +79,7 @@ class FeedsServiceProvider extends ServiceProvider
             'acl'
         );
 
-        
+
         $this->mergeConfigFrom(
             dirname(__DIR__) . '/Config/Feeds.php', 'Feeds'
         );
@@ -88,7 +88,7 @@ class FeedsServiceProvider extends ServiceProvider
         $this->mergeConfigFrom(
             dirname(__DIR__) . '/Config/l5-swagger.php', 'l5-swagger.documentations'
         );
-        
+
     }
 
     /**
@@ -103,6 +103,7 @@ class FeedsServiceProvider extends ServiceProvider
                 \NexaMerchant\Feeds\Console\Commands\Install::class,
                 \NexaMerchant\Feeds\Console\Commands\UnInstall::class,
                 \NexaMerchant\Feeds\Console\Commands\Klaviyo\Push::class,
+                \NexaMerchant\Feeds\Console\Commands\Klaviyo\ProfileImport::class,
             ]);
         }
     }

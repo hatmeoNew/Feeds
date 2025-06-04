@@ -5,6 +5,7 @@ namespace NexaMerchant\Feeds\Console\Commands\Klaviyo;
 use Illuminate\Console\Command;
 use Webkul\Customer\Models\Customer;
 use Webkul\Sales\Models\Order;
+use Maatwebsite\Excel\Facades\Excel;
 
 class Push extends Command
 {
@@ -13,7 +14,7 @@ class Push extends Command
      *
      * @var string
      */
-    protected $signature = 'klaviyo:push {order_id?}';
+    protected $signature = 'klaviyo:push {--order_id=}';
 
     /**
      * The console command description.
@@ -43,7 +44,7 @@ class Push extends Command
     {
         $this->info('Pushing customers to Klaviyo...');
 
-        $brandName = $this->getBrandMapping();
+        $brandName = self::getBrandMapping();
         $emaillist = $this->createEmailList($brandName);
 
         $orderQuery = Order::select(['customer_email', 'customer_first_name', 'customer_last_name', 'id']);
@@ -154,7 +155,7 @@ class Push extends Command
                     'Authorization' => 'Klaviyo-API-Key ' . config('mail.mailers.klaviyo.api_key'),
                     'accept' => 'application/vnd.api+json',
                     'content-type' => 'application/vnd.api+json',
-                    'revision' => '2025-01-15',
+                    'revision' => $this->revision,
                 ],
             ]);
             $body = $response->getBody();
@@ -164,7 +165,7 @@ class Push extends Command
         return $result;
     }
 
-    public function getBrandMapping()
+    public static function getBrandMapping()
     {
         $mapping = [
             // 'HatmeHU' => 'HatmeHU',
@@ -176,7 +177,7 @@ class Push extends Command
             'SedyesPL' => '波兰综合站Sedyes.com',
             // 'ROCOD' => 'ROCOD',
             // 'WmbhSK' => 'WmbhSK',
-            // 'BotmaFR' => 'BotmaFR',
+            'BotmaFR' => '法国内衣站botma.fr',
             // 'GofreiDE' => 'GofreiDE',
             'HatmeDE' => '德国综合站hatme.de',
             // 'HautotoolDE' => 'HautotoolDE',
