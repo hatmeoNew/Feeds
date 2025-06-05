@@ -48,8 +48,8 @@ class Push extends Command
         $emaillist = $this->createEmailList($brandName);
 
         $orderQuery = Order::select(['customer_email', 'customer_first_name', 'customer_last_name', 'id']);
-        if ($this->argument('order_id')) {
-            $orderQuery->where('id', $this->argument('order_id'));
+        if ($this->option('order_id')) {
+            $orderQuery->where('id', $this->option('order_id'));
         }
         $orders = $orderQuery->get();
         if ($orders->isEmpty()) {
