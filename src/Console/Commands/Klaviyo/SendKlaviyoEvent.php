@@ -6,30 +6,44 @@ use GuzzleHttp\Client;
 use Webkul\Sales\Models\Order;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
+use Webkul\Product\Models\Product;
+use Nicelizhi\Shopify\Helpers\Utils;
+use Webkul\Product\Models\ProductImage;
 
 class SendKlaviyoEvent extends Command
 {
-    protected $signature = 'klaviyo:event {order_id=} {metric_name=} {is_debug?}';
+    protected $signature = 'klaviyo:event {--order_id=} {--metric_type=} {--is_debug=}';
     protected $description = '上报Klaviyo事件以触发邮件发送';
 
     const REVISION = '2025-04-15';
     const API_URL = 'https://a.klaviyo.com/api/events';
     const TEST_EMAIL = '916675194@qq.com';
 
+    const METRIC_TYPE_100 = 100;
+    const METRIC_TYPE_200 = 200;
+    const METRIC_TYPE_300 = 300;
+
+    static $metricTypeList = [
+        self::METRIC_TYPE_100 => 'Placed Order',
+    ];
+
     public function handle()
     {
         // 获取参数
         $orderId = $this->option('order_id');
-        $metricName = $this->option('metric_name');
-        $isDebug = $this->argument('is_debug');
+        $metricType = $this->option('metric_type');
+        $isDebug = $this->option('is_debug');
 
         try {
             // 1. 根据订单ID查询订单信息
-            $order = Order::select(['customer_email', 'customer_first_name', 'customer_last_name', 'id'])->where('id', $orderId)->first();
-            if ($order->isEmpty()) {
+            $order = Order::query()->where('id', $orderId)->first();
+            if (empty($order)) {
                 $this->info('No order found.');
                 return 0;
             }
+
+            // dd($this->buildEventProperties($order));
 
             // 2. 构造Klaviyo事件数据
             $eventData = [
@@ -41,7 +55,7 @@ class SendKlaviyoEvent extends Command
                             'data' => [
                                 'type' => 'metric',
                                 'attributes' => [
-                                    'name' => $metricName
+                                    'name' => self::$metricTypeList[$metricType]
                                 ]
                             ]
                         ],
@@ -59,6 +73,8 @@ class SendKlaviyoEvent extends Command
                 ]
             ];
 
+            // dd($eventData);
+
             // 3. 发送Klaviyo API请求
             $client = new Client();
             $response = $client->post(self::API_URL, [
@@ -70,26 +86,59 @@ class SendKlaviyoEvent extends Command
                 'json' => $eventData
             ]);
 
+            $email_send_record = [
+                'order_id' => $orderId,
+                'email' => $order->customer_email,
+                'metric_name' => self::$metricTypeList[$metricType],
+                'created_at' => date('Y-m-d H:i:s'),
+                'updated_at' => date('Y-m-d H:i:s'),
+            ];
+
             // 4. 处理响应
-            if ($response->failed()) {
-                $this->error("Klaviyo API请求失败: {$response->status()}: {$response->body()}");
+            if ($response->getStatusCode() >= 400) {
+                $this->error("Klaviyo API请求失败: {$response->getStatusCode()}: " . $response->getBody()->getContents());
                 Log::error("Klaviyo Event Error", [
                     'order_id' => $orderId,
-                    'response' => $response->body()
+                    'response' => $response->getBody()->getContents()
                 ]);
+
+                DB::table('email_send_records')->insert(
+                    array_merge($email_send_record, [
+                        'send_status' => 'failed',
+                        'failure_reason' => json_encode([
+                            'statusCode' => $response->getStatusCode(),
+                            'response' => $response->getBody()->getContents()
+                        ])
+                    ])
+                );
+
+                Utils::sendFeishu($orderId . 'email send failed');
+
                 return false;
             }
 
-            $this->info("事件上报成功: {$response->json()['data']['id']}");
-            Log::info("Klaviyo Event Sent", ['order_id' => $orderId]);
-            return self::SUCCESS;
+            DB::table('email_send_records')->insert(
+                array_merge($email_send_record, [
+                    'send_status' => 'success',
+                ])
+            );
 
+            Log::info("Klaviyo Event Sent Success!", ['order_id' => $orderId]);
+
+            return true;
         } catch (\Exception $e) {
-            $this->error("处理失败: {$e->getMessage()}");
-            Log::error("Klaviyo Command Error", [
+            // $this->error("处理失败: {$e->getMessage()}");
+            // Log::error("Klaviyo Command Error", [
+            //     'order_id' => $orderId,
+            //     'error' => $e->getMessage()
+            // ]);
+
+            Utils::sendFeishu(json_encode([
                 'order_id' => $orderId,
-                'error' => $e->getMessage()
-            ]);
+                'line' => $e->getLine(),
+                'error' => 'email send fail:' . $e->getMessage()
+            ]));
+
             return false;
         }
     }
@@ -101,29 +150,49 @@ class SendKlaviyoEvent extends Command
      */
     protected function buildEventProperties(Order $order): array
     {
+        $line_items = [];
+        foreach ($order->items as $orderItem) {
+
+            $additional = $orderItem['additional'];
+            $variant_id = $additional['selected_configurable_option'] ?: $orderItem['product_id'];
+            if (empty($additional['img'])) {
+                $additional['img'] = ProductImage::where('product_id', $variant_id)->value('path');
+            }
+            $additional['product_sku'] = Product::where('id', $variant_id)->value('custom_sku');
+
+            if (!empty($additional['attributes'])) {
+                $additional['attributes'] = array_values($additional['attributes']);
+            } else {
+                $additional['attributes'] = [];
+            }
+
+            $additional['price'] = $orderItem['price'];
+            $additional['name'] = $orderItem['name'];
+
+            array_push($line_items, $additional);
+        }
+
         return [
-            'order_number'    => $order->increment_id,
+            'order_number'    => config('odoo_api.order_pre') . '#' . $order->id,//$order->increment_id,
             'total'           => core()->currency($order->grand_total),
             'sub_total'       => core()->currency($order->sub_total),
             'discount_amount' => core()->currency($order->discount_amount),
             'shipping_amount' => core()->currency($order->shipping_amount),
-            'order_time'      => $order->created_at,
-            'payment'         => $order->payment->method,
-            'items'           => $order->items->map(function($item) {
+            'order_time'      => date('Y-m-d H:i:s', strtotime($order->created_at)),
+            'payment'         => ucfirst($order->payment->method),
+            'items'           => collect($line_items)->map(function($item) {
                 return [
-                    'name'            => $item->name,
-                    'sku'             => $item->sku,
-                    'quantity'        => $item->qty_ordered,
-                    'price'           => core()->currency($item->price),
-                    'discount_amount' => core()->currency($item->discount_amount),
-                    'image'           => $item->image_url,
-                    'attributes'      => $item->additional['attributes'],
+                    'sku'        => $item['name'],
+                    'quantity'   => $item['quantity'],
+                    'price'      => core()->currency($item['price']),
+                    'image'      => $item['img'],
+                    'attributes' => $item['attribute_name'] ?? '',
                 ];
             })->toArray(),
-            'billing_address'  => $order->billing_address,
-            'shipping_address' => $order->shipping_address,
+            'billing_address'  => collect($order->billing_address)->only(['phone', 'address1'])->toArray(),
+            'shipping_address' => collect($order->shipping_address)->only(['phone', 'address1'])->toArray(),
             'username'         => trim($order->shipping_address->first_name . ' ' . $order->shipping_address->last_name),
-            'logo'             => storage_path('app/public/logo.webp'),
+            'logo'             => asset('storage/logo.webp'),
         ];
     }
 }
