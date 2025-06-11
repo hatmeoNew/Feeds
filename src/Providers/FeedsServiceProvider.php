@@ -104,6 +104,7 @@ class FeedsServiceProvider extends ServiceProvider
                 \NexaMerchant\Feeds\Console\Commands\UnInstall::class,
                 \NexaMerchant\Feeds\Console\Commands\Klaviyo\Push::class,
                 \NexaMerchant\Feeds\Console\Commands\Klaviyo\ProfileImport::class,
+                \NexaMerchant\Feeds\Console\Commands\Klaviyo\SendKlaviyoEvent::class,
             ]);
         }
     }
