@@ -43,6 +43,18 @@ class SendKlaviyoEvent extends Command
                 return 0;
             }
 
+            // 检测是否已发送邮件
+            $exists = DB::table('email_send_records')->where([
+                'order_id'    => $orderId,
+                'email'       => $order->email,
+                'send_status' => 'success',
+                'metric_name' => self::$metricTypeList[$metricType],
+            ])->exists();
+            if ($exists) {
+                $this->info('订单 ' . $orderId . ' 已发送邮件');
+                return 0;
+            }
+
             // dd($this->buildEventProperties($order));
 
             // 2. 构造Klaviyo事件数据
