@@ -183,7 +183,7 @@ class SendKlaviyoEvent extends Command
         // dd($line_items);
 
         $logo = asset('storage/logo.webp');
-        $logo = str_replace('shop.yooje.uk', 'api.yooje.uk', $logo);
+        $logo = str_replace('shop.', 'api.', $logo);
 
         return [
             'order_number'    => config('odoo_api.order_pre') . '#' . $order->id,//$order->increment_id,
