@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Webkul\Product\Models\Product;
 use Webkul\Product\Models\ProductImage;
+use Nicelizhi\Shopify\Models\ShopifyProduct;
 
 class SendKlaviyoEvent extends Command
 {
@@ -37,6 +38,7 @@ class SendKlaviyoEvent extends Command
         try {
             $order = Order::findOrFail($orderId);
             $email = $isDebug ? self::TEST_EMAIL : $order->customer_email;
+            echo $email, PHP_EOL;
 
             // 检测是否已发送邮件
             $exists = DB::table('email_send_records')->where([
@@ -51,6 +53,7 @@ class SendKlaviyoEvent extends Command
             }
 
             $properties = $this->buildEventProperties($order);
+            // dd($properties);
 
             $sendRes = $this->sendEvent($metricName, $email, $properties);
 
@@ -86,6 +89,7 @@ class SendKlaviyoEvent extends Command
     protected function buildEventProperties(Order $order): array
     {
         $line_items = [];
+        // dd($order->items->toArray());
         foreach ($order->items as $orderItem) {
 
             $additional = $orderItem['additional'];
@@ -93,7 +97,76 @@ class SendKlaviyoEvent extends Command
             if (empty($additional['img'])) {
                 $additional['img'] = ProductImage::where('product_id', $variant_id)->value('path');
             }
-            $additional['product_sku'] = Product::where('id', $variant_id)->value('custom_sku');
+            // $additional['product_sku'] = Product::where('id', $variant_id)->value('custom_sku');
+
+            if (!empty($additional['selected_configurable_option'])) {
+                $variant_id = $additional['selected_configurable_option'];
+            } else {
+                $variant_id = $additional['product_id']; //表示运费险订单
+            }
+            $shopifyInfo = Product::query()->where('id', $variant_id)->value('sku');
+            list($shopify_product_id, $shopify_variant_id) = explode('-', $shopifyInfo);
+            $shopifyProduct = ShopifyProduct::query()->where('product_id', $shopify_product_id)->select('variants', 'images', 'options')->first();
+            $options = [];
+            foreach ($shopifyProduct['variants'] as $variants) {
+                if ($variants['id'] == $shopify_variant_id) {
+                    $additional['product_sku'] = $variants['sku'];
+
+                    if (!empty($variants['option1'])) {
+                        $options['option1'] = $variants['option1'];
+                    }
+                    if (!empty($variants['option2'])) {
+                        $options['option2'] = $variants['option2'];
+                    }
+                    if (!empty($variants['option3'])) {
+                        $options['option3'] = $variants['option3'];
+                    }
+                    foreach ($shopifyProduct['images'] as $images) {
+                        if ($variants['image_id'] == $images['id']) {
+                            $additional['img'] = $images['src'];
+                            break;
+                        }
+                    }
+                    // 如果没有图片，则取第一个图片
+                    if (empty($additional['img'])) {
+                        $additional['img'] = $shopifyProduct['images'][0]['src'];
+                    }
+
+                    if ($additional['img'] && strpos($additional['img'], 'https') === false) {
+                        $additional['img'] = 'https://shop.yooje.uk/cache/large/' . $additional['img'];
+                    }
+
+                    break;
+                }
+            }
+
+            if (!empty($additional['attributes'])) {
+                $additional['attributes'] = array_values($additional['attributes']);
+            } else {
+                // dump($options);
+                $additional['attributes'] = [];
+
+                // 非运费险订单才需要属性
+                if ($variant_id != env('ONEBUY_RETURN_SHIPPING_INSURANCE_PRODUCT_ID')) {
+
+                    $i = 0;
+                    foreach ($options as $option) {
+                        if (empty($shopifyProduct['options'][$i])) {
+                            $i++;
+                            continue;
+                        }
+                        $attrName = $shopifyProduct['options'][$i]['name'];
+                        $attrValue = $option;
+
+                        $additional['attributes'][] = [
+                            'attribute_name' => $attrName,
+                            'option_label' => $attrValue,
+                        ];
+
+                        $i++;
+                    }
+                }
+            }
 
             if (!empty($additional['attributes'])) {
                 $additional['attributes'] = array_values($additional['attributes']);
@@ -106,6 +179,11 @@ class SendKlaviyoEvent extends Command
 
             array_push($line_items, $additional);
         }
+
+        // dd($line_items);
+
+        $logo = asset('storage/logo.webp');
+        $logo = str_replace('shop.yooje.uk', 'api.yooje.uk', $logo);
 
         return [
             'order_number'    => config('odoo_api.order_pre') . '#' . $order->id,//$order->increment_id,
@@ -127,7 +205,7 @@ class SendKlaviyoEvent extends Command
             'billing_address'  => collect($order->billing_address)->only(['phone', 'address1'])->toArray(),
             'shipping_address' => collect($order->shipping_address)->only(['phone', 'address1'])->toArray(),
             'username'         => trim($order->shipping_address->first_name . ' ' . $order->shipping_address->last_name),
-            'logo'             => asset('storage/logo.webp'),
+            'logo'             => $logo,
         ];
     }
 
