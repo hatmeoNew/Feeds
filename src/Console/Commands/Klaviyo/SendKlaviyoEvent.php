@@ -133,7 +133,8 @@ class SendKlaviyoEvent extends Command
                     }
 
                     if ($additional['img'] && strpos($additional['img'], 'https') === false) {
-                        $additional['img'] = 'https://shop.yooje.uk/cache/large/' . $additional['img'];
+                        $additional['img'] = env('APP_URL') . '/cache/large/' . $additional['img'];
+                        $additional['img'] = str_replace('shop.', 'api.', $additional['img']);
                     }
 
                     break;
@@ -202,8 +203,8 @@ class SendKlaviyoEvent extends Command
                     'attributes' => $item['attribute_name'] ?? '',
                 ];
             })->toArray(),
-            'billing_address'  => collect($order->billing_address)->only(['phone', 'address1'])->toArray(),
-            'shipping_address' => collect($order->shipping_address)->only(['phone', 'address1'])->toArray(),
+            'billing_address'  => collect($order->billing_address)->only(['phone', 'address1', 'country', 'city'])->toArray(),
+            'shipping_address' => collect($order->shipping_address)->only(['phone', 'address1', 'country', 'city'])->toArray(),
             'username'         => trim($order->shipping_address->first_name . ' ' . $order->shipping_address->last_name),
             'logo'             => $logo,
         ];
