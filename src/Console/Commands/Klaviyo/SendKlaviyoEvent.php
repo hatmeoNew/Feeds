@@ -207,6 +207,7 @@ class SendKlaviyoEvent extends Command
             'shipping_address' => collect($order->shipping_address)->only(['phone', 'address1', 'country', 'city'])->toArray(),
             'username'         => trim($order->shipping_address->first_name . ' ' . $order->shipping_address->last_name),
             'logo'             => $logo,
+            'shop_email'       => core()->getConfigData('emails.configure.email_settings.shop_email_from') ?: 'vip@kundies.com'
         ];
     }
 
