@@ -124,8 +124,8 @@ class SendKlaviyoEvent extends Command
                     'attributes' => $item['attribute_name'] ?? '',
                 ];
             })->toArray(),
-            'billing_address'  => collect($order->billing_address)->only(['phone', 'address1'])->toArray(),
-            'shipping_address' => collect($order->shipping_address)->only(['phone', 'address1'])->toArray(),
+            'billing_address'  => collect($order->billing_address)->only(['country', 'city', 'phone', 'address1'])->toArray(),
+            'shipping_address' => collect($order->shipping_address)->only(['country', 'city', 'phone', 'address1'])->toArray(),
             'username'         => trim($order->shipping_address->first_name . ' ' . $order->shipping_address->last_name),
             'logo'             => asset('storage/logo.webp'),
         ];
