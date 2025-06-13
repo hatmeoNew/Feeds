@@ -159,7 +159,8 @@ class SendKlaviyoEvent extends Command
                                 'type' => 'profile',
                                 'attributes' => [
                                     'properties' => [
-                                        'email' => $email
+                                        'email' => $email,
+                                        'locale' => env('LOCALE', 'en')
                                     ]
                                 ]
                             ]
