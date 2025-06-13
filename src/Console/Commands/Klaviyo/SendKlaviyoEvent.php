@@ -160,7 +160,7 @@ class SendKlaviyoEvent extends Command
                                 'attributes' => [
                                     'properties' => [
                                         'email' => $email,
-                                        'locale' => env('LOCALE', 'en')
+                                        'locale' => env('APP_LOCALE', 'en')
                                     ]
                                 ]
                             ]
