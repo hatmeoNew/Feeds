@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\DB;
 use Webkul\Product\Models\Product;
 use Webkul\Product\Models\ProductImage;
 use Nicelizhi\Shopify\Models\ShopifyProduct;
+use Webkul\Sales\Repositories\ShipmentRepository;
 
 class SendKlaviyoEvent extends Command
 {
@@ -26,19 +27,22 @@ class SendKlaviyoEvent extends Command
 
     static $eventList = [
         self::METRIC_TYPE_100 => 'Placed Order',
+        self::METRIC_TYPE_200 => 'Fulfilled Order',
+        self::METRIC_TYPE_300 => 'Cancelled Order'
     ];
+
+    public $email;
 
     public function handle()
     {
         $orderId = $this->option('order_id');
         $metricType = $this->option('metric_type');
         $isDebug = $this->option('is_debug') === '1';
-        $metricName = self::$eventList[$metricType];
 
         try {
             $order = Order::findOrFail($orderId);
-            $email = $isDebug ? self::TEST_EMAIL : $order->customer_email;
-            echo $email, PHP_EOL;
+            $this->email = $isDebug ? self::TEST_EMAIL : $order->customer_email;
+            echo $this->email, PHP_EOL;
 
             // 检测是否已发送邮件
             $exists = DB::table('email_send_records')->where([
@@ -47,27 +51,29 @@ class SendKlaviyoEvent extends Command
                 'send_status' => 'success',
                 'metric_name' => self::$eventList[$metricType],
             ])->exists();
-            if ($exists && !$isDebug) {
+            if ($exists && !$isDebug && ($metricType == self::METRIC_TYPE_100)) {
                 $this->info('订单 ' . $orderId . ' 已发送邮件');
                 return 0;
             }
 
-            $properties = $this->buildEventProperties($order);
-            // dd($properties);
+            // 下单
+            if ($metricType == self::METRIC_TYPE_100) {
+                $sendRes = $this->placedOrder($order);
+            }
 
-            $sendRes = $this->sendEvent($metricName, $email, $properties);
-
-            // 数据入库 & 日志处理
-            DB::table('email_send_records')->insert(array_merge(
-                [
-                    'order_id' => $orderId,
-                    'email' => $order->customer_email,
-                    'metric_name' => self::$eventList[$metricType],
-                    'created_at' => date('Y-m-d H:i:s'),
-                    'updated_at' => date('Y-m-d H:i:s'),
-                ],
-                $sendRes
-            ));
+            // 发货
+            if ($metricType == self::METRIC_TYPE_200) {
+                try {
+                    // 找出该订单的出货单记录
+                    $shipments = app(ShipmentRepository::class)->with('items')->where('order_id', $orderId)->get();
+                    foreach ($shipments as $shipment) {
+                        $sendRes = $this->fulfilledOrder($order, $shipment);
+                        // dd($sendRes);
+                    }
+                } catch (\Throwable $th) {
+                    dd($th->getMessage());
+                }
+            }
 
             dump('send res', $sendRes);
         } catch (\Exception $th) {
@@ -81,6 +87,73 @@ class SendKlaviyoEvent extends Command
         return true;
     }
 
+    protected function fulfilledOrder($order, $shipment)
+    {
+        $properties = $this->buildEventPropertiesFulfilled($order, $shipment);
+        // dd($properties);
+        $sendRes = $this->sendEvent(self::$eventList[self::METRIC_TYPE_200], $properties);
+        // 数据入库 & 日志处理
+        DB::table('email_send_records')->insert(array_merge(
+            [
+                'order_id' => $order->id,
+                'email' => $order->customer_email,
+                'metric_name' => self::$eventList[self::METRIC_TYPE_200],
+                'created_at' => date('Y-m-d H:i:s'),
+                'updated_at' => date('Y-m-d H:i:s'),
+            ],
+            $sendRes
+        ));
+
+        return $sendRes;
+    }
+
+    protected function placedOrder($order)
+    {
+        $properties = $this->buildEventProperties($order);
+        // dd($properties);
+
+        $sendRes = $this->sendEvent(self::$eventList[self::METRIC_TYPE_100], $properties);
+
+        // 数据入库 & 日志处理
+        DB::table('email_send_records')->insert(array_merge(
+            [
+                'order_id' => $order->id,
+                'email' => $order->customer_email,
+                'metric_name' => self::$eventList[self::METRIC_TYPE_100],
+                'created_at' => date('Y-m-d H:i:s'),
+                'updated_at' => date('Y-m-d H:i:s'),
+            ],
+            $sendRes
+        ));
+
+        return $sendRes;
+    }
+
+    protected function buildEventPropertiesFulfilled($order, $shipment)
+    {
+        $line_items = $this->_formatOrderItem($shipment);
+        // dd($line_items);
+
+        $logo = asset('storage/logo.webp');
+        $logo = str_replace(['shop.', 'offer.'], 'api.', $logo);
+        return [
+            'order_number'    => config('odoo_api.order_pre') . '#' . $order->id,
+            'items'           => collect($line_items)->map(function($item) {
+                return [
+                    'sku'        => $item['name'],
+                    'quantity'   => $item['quantity'],
+                    'image'      => $item['img'],
+                    'attributes' => $item['attribute_name'] ?? '',
+                ];
+            })->toArray(),
+            'username'      => trim($order->shipping_address->first_name . ' ' . $order->shipping_address->last_name),
+            'logo'          => $logo,
+            'carrier_title' => $shipment->carrier_title,
+            'track_number'  => $shipment->track_number,
+            'shop_email'    => core()->getConfigData('emails.configure.email_settings.shop_email_from') ?: 'vip@kundies.com'
+        ];
+    }
+
     /**
      * 构建事件属性数据
      * @param Order $order
@@ -88,8 +161,39 @@ class SendKlaviyoEvent extends Command
      */
     protected function buildEventProperties(Order $order): array
     {
+        $line_items = $this->_formatOrderItem($order);
+
+        $logo = asset('storage/logo.webp');
+        $logo = str_replace('shop.', 'api.', $logo);
+
+        return [
+            'order_number'    => config('odoo_api.order_pre') . '#' . $order->id,//$order->increment_id,
+            'total'           => core()->currency($order->grand_total),
+            'sub_total'       => core()->currency($order->sub_total),
+            'discount_amount' => core()->currency($order->discount_amount),
+            'shipping_amount' => core()->currency($order->shipping_amount),
+            'order_time'      => date('Y-m-d H:i:s', strtotime($order->created_at)),
+            'payment'         => ucfirst($order->payment->method),
+            'items'           => collect($line_items)->map(function($item) {
+                return [
+                    'sku'        => $item['name'],
+                    'quantity'   => $item['quantity'],
+                    'price'      => core()->currency($item['price']),
+                    'image'      => $item['img'],
+                    'attributes' => $item['attribute_name'] ?? '',
+                ];
+            })->toArray(),
+            'billing_address'  => collect($order->billing_address)->only(['phone', 'address1', 'country', 'city'])->toArray(),
+            'shipping_address' => collect($order->shipping_address)->only(['phone', 'address1', 'country', 'city'])->toArray(),
+            'username'         => trim($order->shipping_address->first_name . ' ' . $order->shipping_address->last_name),
+            'logo'             => $logo,
+            'shop_email'       => core()->getConfigData('emails.configure.email_settings.shop_email_from') ?: 'vip@kundies.com'
+        ];
+    }
+
+    public function _formatOrderItem($order)
+    {
         $line_items = [];
-        // dd($order->items->toArray());
         foreach ($order->items as $orderItem) {
 
             $additional = $orderItem['additional'];
@@ -97,7 +201,6 @@ class SendKlaviyoEvent extends Command
             if (empty($additional['img'])) {
                 $additional['img'] = ProductImage::where('product_id', $variant_id)->value('path');
             }
-            // $additional['product_sku'] = Product::where('id', $variant_id)->value('custom_sku');
 
             if (!empty($additional['selected_configurable_option'])) {
                 $variant_id = $additional['selected_configurable_option'];
@@ -141,6 +244,10 @@ class SendKlaviyoEvent extends Command
                 }
             }
 
+            if ($variant_id == env('ONEBUY_RETURN_SHIPPING_INSURANCE_PRODUCT_ID')) {
+                $additional['img'] = 'https://api.kundies.com/storage/tinymce/cGxK7A86dDzSQl8bEy0WlQPdNy2de8Vur9fHzvXu.webp';
+            }
+
             if (!empty($additional['attributes'])) {
                 $additional['attributes'] = array_values($additional['attributes']);
             } else {
@@ -181,34 +288,7 @@ class SendKlaviyoEvent extends Command
             array_push($line_items, $additional);
         }
 
-        // dd($line_items);
-
-        $logo = asset('storage/logo.webp');
-        $logo = str_replace('shop.', 'api.', $logo);
-
-        return [
-            'order_number'    => config('odoo_api.order_pre') . '#' . $order->id,//$order->increment_id,
-            'total'           => core()->currency($order->grand_total),
-            'sub_total'       => core()->currency($order->sub_total),
-            'discount_amount' => core()->currency($order->discount_amount),
-            'shipping_amount' => core()->currency($order->shipping_amount),
-            'order_time'      => date('Y-m-d H:i:s', strtotime($order->created_at)),
-            'payment'         => ucfirst($order->payment->method),
-            'items'           => collect($line_items)->map(function($item) {
-                return [
-                    'sku'        => $item['name'],
-                    'quantity'   => $item['quantity'],
-                    'price'      => core()->currency($item['price']),
-                    'image'      => $item['img'],
-                    'attributes' => $item['attribute_name'] ?? '',
-                ];
-            })->toArray(),
-            'billing_address'  => collect($order->billing_address)->only(['phone', 'address1', 'country', 'city'])->toArray(),
-            'shipping_address' => collect($order->shipping_address)->only(['phone', 'address1', 'country', 'city'])->toArray(),
-            'username'         => trim($order->shipping_address->first_name . ' ' . $order->shipping_address->last_name),
-            'logo'             => $logo,
-            'shop_email'       => core()->getConfigData('emails.configure.email_settings.shop_email_from') ?: 'vip@kundies.com'
-        ];
+        return $line_items;
     }
 
     /**
@@ -219,7 +299,7 @@ class SendKlaviyoEvent extends Command
      * @param array $properties 事件属性（如订单信息）
      * @return array
      */
-    public function sendEvent(string $eventName, string $email, array $properties = []): array
+    public function sendEvent(string $eventName, array $properties = []): array
     {
         try {
             $eventData = [
@@ -239,7 +319,7 @@ class SendKlaviyoEvent extends Command
                                 'type' => 'profile',
                                 'attributes' => [
                                     'properties' => [
-                                        'email' => $email,
+                                        'email' => $this->email,
                                         'locale' => env('APP_LOCALE', 'en')
                                     ]
                                 ]
@@ -249,7 +329,7 @@ class SendKlaviyoEvent extends Command
                     ]
                 ]
             ];
-
+            // dd($eventData);
             $client = new Client();
             $response = $client->post(self::API_URL, [
                 'headers' => [
