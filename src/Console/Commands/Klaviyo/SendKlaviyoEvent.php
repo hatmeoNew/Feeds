@@ -356,7 +356,7 @@ class SendKlaviyoEvent extends Command
             ];
         } catch (\Exception $e) {
             Log::error('Klaviyo event send failed', [
-                'email' => $email,
+                'email' => $this->email,
                 'event' => $eventName,
                 'error' => $e->getMessage()
             ]);
