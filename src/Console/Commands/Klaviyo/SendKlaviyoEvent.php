@@ -43,7 +43,7 @@ class SendKlaviyoEvent extends Command
         // 检测是否已发送邮件
         $exists = DB::table('email_send_records')->where([
             'order_id'    => $orderId,
-            'email'       => $order->customer_email,
+            'email'       => $this->email,
             'send_status' => 'success',
             'metric_name' => self::$eventList[$metricType],
         ])->exists();
@@ -80,7 +80,7 @@ class SendKlaviyoEvent extends Command
         DB::table('email_send_records')->insert(array_merge(
             [
                 'order_id' => $order->id,
-                'email' => $order->customer_email,
+                'email' => $this->email,
                 'metric_name' => self::$eventList[self::METRIC_TYPE_200],
                 'created_at' => date('Y-m-d H:i:s'),
                 'updated_at' => date('Y-m-d H:i:s'),
