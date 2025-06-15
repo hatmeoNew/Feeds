@@ -49,7 +49,7 @@ class SendKlaviyoEvent extends Command
                 'send_status' => 'success',
                 'metric_name' => self::$eventList[$metricType],
             ])->exists();
-            if ($exists && !$isDebug) {
+            if ($exists && !$isDebug && ($metricType == self::METRIC_TYPE_100)) {
                 $this->info('订单 ' . $orderId . ' 已发送邮件');
                 return 0;
             }
