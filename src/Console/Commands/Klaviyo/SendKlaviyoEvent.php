@@ -187,7 +187,7 @@ class SendKlaviyoEvent extends Command
         }
 
         $payment = ucfirst($order->payment->method);
-        if (stripos($payment, 'paypal')) {
+        if (stripos($payment, 'paypal') !== false) {
             $payment = 'PayPal';
         }
 
