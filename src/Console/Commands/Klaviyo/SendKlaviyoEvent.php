@@ -186,6 +186,11 @@ class SendKlaviyoEvent extends Command
             array_push($line_items, $additional);
         }
 
+        $payment = ucfirst($order->payment->method);
+        if (stripos($payment, 'paypal')) {
+            $payment = 'PayPal';
+        }
+
         return [
             'order_number'    => config('odoo_api.order_pre') . '#' . $order->id,//$order->increment_id,
             'total'           => core()->currency($order->grand_total),
@@ -193,7 +198,7 @@ class SendKlaviyoEvent extends Command
             'discount_amount' => core()->currency($order->discount_amount),
             'shipping_amount' => core()->currency($order->shipping_amount),
             'order_time'      => date('Y-m-d H:i:s', strtotime($order->created_at)),
-            'payment'         => ucfirst($order->payment->method),
+            'payment'         => $payment,
             'items'           => collect($line_items)->map(function($item) {
                 return [
                     'sku'        => $item['name'],
