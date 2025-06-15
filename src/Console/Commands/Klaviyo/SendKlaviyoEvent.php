@@ -5,7 +5,6 @@ namespace NexaMerchant\Feeds\Console\Commands\Klaviyo;
 use GuzzleHttp\Client;
 use Webkul\Sales\Models\Order;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Webkul\Product\Models\Product;
 use Webkul\Product\Models\ProductImage;
@@ -38,48 +37,35 @@ class SendKlaviyoEvent extends Command
         $metricType = $this->option('metric_type');
         $isDebug = $this->option('is_debug') === '1';
 
-        try {
-            $order = Order::findOrFail($orderId);
-            $this->email = $isDebug ? self::TEST_EMAIL : $order->customer_email;
+        $order = Order::findOrFail($orderId);
+        $this->email = $isDebug ? self::TEST_EMAIL : $order->customer_email;
 
-            // 检测是否已发送邮件
-            $exists = DB::table('email_send_records')->where([
-                'order_id'    => $orderId,
-                'email'       => $order->customer_email,
-                'send_status' => 'success',
-                'metric_name' => self::$eventList[$metricType],
-            ])->exists();
-            if ($exists && !$isDebug && ($metricType == self::METRIC_TYPE_100)) {
-                $this->info('订单 ' . $orderId . ' 已发送邮件');
-                return 0;
-            }
+        // 检测是否已发送邮件
+        $exists = DB::table('email_send_records')->where([
+            'order_id'    => $orderId,
+            'email'       => $order->customer_email,
+            'send_status' => 'success',
+            'metric_name' => self::$eventList[$metricType],
+        ])->exists();
+        if ($exists && !$isDebug && ($metricType == self::METRIC_TYPE_100)) {
+            $this->info('订单 ' . $orderId . ' 已发送邮件');
+            return 0;
+        }
 
-            // 下单
-            if ($metricType == self::METRIC_TYPE_100) {
-                $sendRes = $this->placedOrder($order);
-            }
-
-            // 发货
-            if ($metricType == self::METRIC_TYPE_200) {
-                try {
-                    // 找出该订单的出货单记录
-                    $shipments = app(ShipmentRepository::class)->with('items')->where('order_id', $orderId)->get();
-                    foreach ($shipments as $shipment) {
-                        $sendRes = $this->fulfilledOrder($order, $shipment);
-                        // dd($sendRes);
-                    }
-                } catch (\Throwable $th) {
-                    dd($th->getMessage());
-                }
-            }
-
+        // 下单
+        if ($metricType == self::METRIC_TYPE_100) {
+            $sendRes = $this->placedOrder($order);
             dump('send res', $sendRes);
-        } catch (\Exception $th) {
-            dump([
-                'order_id' => $orderId,
-                'line' => $th->getLine(),
-                'error' => 'email send fail:' . $th->getMessage()
-            ]);
+        }
+
+        // 发货
+        if ($metricType == self::METRIC_TYPE_200) {
+            // 找出该订单的出货单记录
+            $shipments = app(ShipmentRepository::class)->with('items')->where('order_id', $orderId)->get();
+            foreach ($shipments as $shipment) {
+                $sendRes = $this->fulfilledOrder($order, $shipment);
+                dump('send res', $sendRes);
+            }
         }
 
         return true;
@@ -235,71 +221,58 @@ class SendKlaviyoEvent extends Command
      */
     public function sendEvent(string $eventName, array $properties = []): array
     {
-        try {
-            $eventData = [
-                'data' => [
-                    'type' => 'event',
-                    'attributes' => [
-                        'metric' => [
-                            'data' => [
-                                'type' => 'metric',
-                                'attributes' => [
-                                    'name' => $eventName
+        $eventData = [
+            'data' => [
+                'type' => 'event',
+                'attributes' => [
+                    'metric' => [
+                        'data' => [
+                            'type' => 'metric',
+                            'attributes' => [
+                                'name' => $eventName
+                            ]
+                        ]
+                    ],
+                    'profile' => [
+                        'data' => [
+                            'type' => 'profile',
+                            'attributes' => [
+                                'properties' => [
+                                    'email' => $this->email,
+                                    'locale' => env('APP_LOCALE', 'en')
                                 ]
                             ]
-                        ],
-                        'profile' => [
-                            'data' => [
-                                'type' => 'profile',
-                                'attributes' => [
-                                    'properties' => [
-                                        'email' => $this->email,
-                                        'locale' => env('APP_LOCALE', 'en')
-                                    ]
-                                ]
-                            ]
-                        ],
-                        'properties' => $properties
-                    ]
+                        ]
+                    ],
+                    'properties' => $properties
                 ]
-            ];
+            ]
+        ];
 
-            $client = new Client();
-            $response = $client->post(self::API_URL, [
-                'headers' => [
-                    'Accept'        => 'application/vnd.api+json',
-                    'Revision'      => self::REVISION,
-                    'Authorization' => 'Klaviyo-API-Key ' . config('mail.mailers.klaviyo.api_key'),
-                ],
-                'json' => $eventData
-            ]);
+        $client = new Client();
+        $response = $client->post(self::API_URL, [
+            'headers' => [
+                'Accept'        => 'application/vnd.api+json',
+                'Revision'      => self::REVISION,
+                'Authorization' => 'Klaviyo-API-Key ' . config('mail.mailers.klaviyo.api_key'),
+            ],
+            'json' => $eventData
+        ]);
 
-            if ($response->getStatusCode() >= 400) {
-                return [
-                    'send_status' => 0,
-                    'failure_reason' => json_encode(
-                        $response->getStatusCode(),
-                        $response->getBody()->getContents()
-                    )
-                ];
-            }
-
-            return [
-                'send_status' => 1,
-                'failure_reason' => ''
-            ];
-        } catch (\Exception $e) {
-            Log::error('Klaviyo event send failed', [
-                'email' => $this->email,
-                'event' => $eventName,
-                'error' => $e->getMessage()
-            ]);
-
+        if ($response->getStatusCode() >= 400) {
             return [
                 'send_status' => 0,
-                'failure_reason' => $e->getMessage()
+                'failure_reason' => json_encode(
+                    $response->getStatusCode(),
+                    $response->getBody()->getContents()
+                )
             ];
-            // return false;
         }
+
+        return [
+            'send_status' => 1,
+            'failure_reason' => ''
+        ];
+
     }
 }
