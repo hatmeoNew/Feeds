@@ -137,7 +137,7 @@ class SendKlaviyoEvent extends Command
             'logo'          => $logo,
             'carrier_title' => $shipment->carrier_title,
             'track_number'  => $shipment->track_number,
-            'shop_email'    => core()->getConfigData('emails.configure.email_settings.shop_email_from') ?: 'vip@kundies.com'
+            'shop_email'    => $this->getShopEmail()
         ];
     }
 
@@ -179,8 +179,20 @@ class SendKlaviyoEvent extends Command
             'shipping_address' => collect($order->shipping_address)->only(['phone', 'address1', 'country', 'city'])->toArray(),
             'username'         => trim($order->shipping_address->first_name . ' ' . $order->shipping_address->last_name),
             'logo'             => $logo,
-            'shop_email'       => core()->getConfigData('emails.configure.email_settings.shop_email_from') ?: 'vip@kundies.com'
+            'shop_email'       => $this->getShopEmail(),//core()->getConfigData('emails.configure.email_settings.shop_email_from') ?: 'vip@kundies.com'
         ];
+    }
+
+    public function getShopEmail()
+    {
+        $email_map = [
+            'yooje_uk' => 'customer@yooje.uk',
+            'hameo_de' => 'customer@hatme.de',
+            'hameo_es' => 'customer@wmcer.com',
+            'hameo_fr' => 'customer@botma.fr'
+        ];
+
+        return $email_map[env('APP_NAME')] ?? 'customer@hatmeo.com';
     }
 
     public function _formatOrderItem($order)
