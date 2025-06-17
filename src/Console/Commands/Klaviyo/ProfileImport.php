@@ -62,7 +62,7 @@ class ProfileImport extends Command
         // $sheetData = $spreadsheet->getActiveSheet()->toArray();
 
         foreach ($this->getFileData($filePath) as $line => $row) {
-            if ($line == 0 || $line < 142) continue;
+            if ($line == 0 || $line < 1200) continue;
             $first_name = $row[0] ?? '';
             $last_name = $row[1] ?? '';
             $email = $row[2] ?? '';
