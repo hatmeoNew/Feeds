@@ -157,7 +157,9 @@ class SendKlaviyoEvent extends Command
             'logo'          => $logo,
             'carrier_title' => $shipment->carrier_title,
             'track_number'  => $shipment->track_number,
-            'shop_email'    => core()->getConfigData('emails.configure.email_settings.shop_email_from') ?: 'vip@kundies.com'
+            'shop_email'       => core()->getConfigData('emails.configure.email_settings.shop_email_from') ?: 'vip@kundies.com',
+            'shop_name'        => core()->getConfigData('emails.configure.email_settings.sender_name') ?: 'Kundies',
+            'subject_line'     => trans('email.shipped_confirmation')
         ];
     }
 
@@ -216,7 +218,9 @@ class SendKlaviyoEvent extends Command
             'shipping_address' => collect($order->shipping_address)->only(['country', 'city', 'phone', 'address1'])->toArray(),
             'username'         => trim($order->shipping_address->first_name . ' ' . $order->shipping_address->last_name),
             'logo'             => asset('storage/logo.webp'),
-            'shop_email'       => core()->getConfigData('emails.configure.email_settings.shop_email_from') ?: 'vip@kundies.com'
+            'shop_email'       => core()->getConfigData('emails.configure.email_settings.shop_email_from') ?: 'vip@kundies.com',
+            'shop_name'        => core()->getConfigData('emails.configure.email_settings.sender_name') ?: 'Kundies',
+            'subject_line'     => trans('email.shipped_confirmation')
         ];
     }
 
