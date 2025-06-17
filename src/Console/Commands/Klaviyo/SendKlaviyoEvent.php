@@ -25,6 +25,7 @@ class SendKlaviyoEvent extends Command
     const METRIC_TYPE_300 = 300;
 
     public $email;
+    public $metric_type;
 
     static $eventList = [
         self::METRIC_TYPE_100 => 'Placed Order',
@@ -40,6 +41,7 @@ class SendKlaviyoEvent extends Command
 
         $order = Order::findOrFail($orderId);
         $this->email = $isDebug ? self::TEST_EMAIL : $order->customer_email;
+        $this->metric_type = $metricType;
         if (empty($this->email)) {
             Utils::sendFeishu('邮件地址为空' . ' 订单ID：' . $orderId . ' . website:' . config('odoo_api.website_url'));
         }
@@ -159,8 +161,28 @@ class SendKlaviyoEvent extends Command
             'track_number'  => $shipment->track_number,
             'shop_email'       => core()->getConfigData('emails.configure.email_settings.shop_email_from') ?: 'vip@kundies.com',
             'shop_name'        => core()->getConfigData('emails.configure.email_settings.sender_name') ?: 'Kundies',
-            'subject_line'     => trans('email.shipped_confirmation')
+            'subject_line'     => $this->getSubjectLine()
         ];
+    }
+
+    public function getSubjectLine()
+    {
+        $subject_line = '';
+        switch ($this->metric_type) {
+            case self::METRIC_TYPE_100:
+                $subject_line = trans('email.new_order_confirmation');
+                break;
+
+            case self::METRIC_TYPE_200:
+                $subject_line = trans('email.shipped_confirmation');
+                break;
+
+            default:
+                # code...
+                break;
+        }
+
+        return $subject_line;
     }
 
     /**
@@ -220,7 +242,7 @@ class SendKlaviyoEvent extends Command
             'logo'             => asset('storage/logo.webp'),
             'shop_email'       => core()->getConfigData('emails.configure.email_settings.shop_email_from') ?: 'vip@kundies.com',
             'shop_name'        => core()->getConfigData('emails.configure.email_settings.sender_name') ?: 'Kundies',
-            'subject_line'     => trans('email.shipped_confirmation')
+            'subject_line'     => $this->getSubjectLine()
         ];
     }
 
