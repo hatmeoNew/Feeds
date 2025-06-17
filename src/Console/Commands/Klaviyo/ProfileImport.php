@@ -44,7 +44,7 @@ class ProfileImport extends Command
     {
         $this->info('Pushing customers to Klaviyo...');
 
-        ini_set('memory_limit', '50');
+        ini_set('memory_limit', '50M');
 
         $brandName = Push::getBrandMapping();
         $emaillist = $this->createEmailList($brandName);
@@ -79,7 +79,7 @@ class ProfileImport extends Command
                 'address1' => $row[3] ?? '',
                 'address2' => $row[4] ?? '',
                 'city' => $row[5] ?? '',
-                'region' => $row[8] ?? '',
+                'region' => $row[6] ?? '',
                 'country' => $row[7] ?? '',
                 'zip' => $row[8] ?? '',
             ];
