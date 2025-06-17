@@ -44,7 +44,7 @@ class ProfileImport extends Command
     {
         $this->info('Pushing customers to Klaviyo...');
 
-        ini_set('memory_limit', '50M');
+        ini_set('memory_limit', '500M');
 
         $brandName = Push::getBrandMapping();
         $emaillist = $this->createEmailList($brandName);
