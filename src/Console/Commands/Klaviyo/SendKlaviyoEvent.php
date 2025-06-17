@@ -32,6 +32,7 @@ class SendKlaviyoEvent extends Command
     ];
 
     public $email;
+    public $metric_type;
 
     public function handle()
     {
@@ -41,6 +42,7 @@ class SendKlaviyoEvent extends Command
 
         $order = Order::findOrFail($orderId);
         $this->email = $isDebug ? self::TEST_EMAIL : $order->customer_email;
+        $this->metric_type = $metricType;
         echo $this->email, PHP_EOL;
 
         // 检测是否已发送邮件
@@ -139,8 +141,28 @@ class SendKlaviyoEvent extends Command
             'track_number'  => $shipment->track_number,
             'shop_email'    => $this->getShopEmail(),
             'shop_name'     => core()->getConfigData('emails.configure.email_settings.shop_email_name') ?: 'customer',
-            'subject_line'  => trans('email.shipped_confirmation')
+            'subject_line'  => $this->getSubjectLine()
         ];
+    }
+
+    public function getSubjectLine()
+    {
+        $subject_line = '';
+        switch ($this->metric_type) {
+            case self::METRIC_TYPE_100:
+                $subject_line = trans('email.new_order_confirmation');
+                break;
+
+            case self::METRIC_TYPE_200:
+                $subject_line = trans('email.shipped_confirmation');
+                break;
+
+            default:
+                # code...
+                break;
+        }
+
+        return $subject_line;
     }
 
     /**
@@ -181,9 +203,9 @@ class SendKlaviyoEvent extends Command
             'shipping_address' => collect($order->shipping_address)->only(['phone', 'address1', 'country', 'city'])->toArray(),
             'username'         => trim($order->shipping_address->first_name . ' ' . $order->shipping_address->last_name),
             'logo'             => $logo,
-            'shop_email'       => $this->getShopEmail(),//core()->getConfigData('emails.configure.email_settings.shop_email_from') ?: 'vip@kundies.com'
+            'shop_email'       => $this->getShopEmail(),                                                                          //core()->getConfigData('emails.configure.email_settings.shop_email_from') ?: 'vip@kundies.com'
             'shop_name'        => core()->getConfigData('emails.configure.email_settings.shop_email_name') ?: 'customer',
-            'subject_line'     => trans('email.shipped_confirmation')
+            'subject_line'     => $this->getSubjectLine()
         ];
     }
 
