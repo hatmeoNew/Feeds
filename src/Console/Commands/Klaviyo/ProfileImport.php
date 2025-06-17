@@ -151,7 +151,7 @@ class ProfileImport extends Command
                 $this->error('Error pushing profile: ' . $e->getMessage());
                 dd();
             }
-            sleep(1); // 避免请求过快
+            sleep(3); // 避免请求过快
         }
 
     }
