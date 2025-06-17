@@ -6,6 +6,7 @@ use GuzzleHttp\Client;
 use Webkul\Sales\Models\Order;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use Nicelizhi\Shopify\Helpers\Utils;
 use Webkul\Product\Models\Product;
 use Webkul\Product\Models\ProductImage;
 use Webkul\Sales\Repositories\ShipmentRepository;
@@ -39,6 +40,9 @@ class SendKlaviyoEvent extends Command
 
         $order = Order::findOrFail($orderId);
         $this->email = $isDebug ? self::TEST_EMAIL : $order->customer_email;
+        if (empty($this->email)) {
+            Utils::sendFeishu('邮件地址为空' . ' 订单ID：' . $orderId . ' . website:' . config('odoo_api.website_url'));
+        }
 
         // 检测是否已发送邮件
         $exists = DB::table('email_send_records')->where([
