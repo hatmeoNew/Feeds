@@ -44,25 +44,21 @@ class ProfileImport extends Command
     {
         $this->info('Pushing customers to Klaviyo...');
 
-        ini_set('memory_limit', '312M');
-
-        // dd(self::formatPhoneNumber('8712358270'));
+        ini_set('memory_limit', '50');
 
         $brandName = Push::getBrandMapping();
         $emaillist = $this->createEmailList($brandName);
-        // dd($emaillist);
+
         $client = new \GuzzleHttp\Client();
 
-        $filePath = storage_path('imports/kundies_com.csv');
+        $filePath = storage_path('imports/customers_export.csv');
         if (!file_exists($filePath)) {
-            dd('Excel file not found: ' . $filePath);
-            return 1;
+            dump('Excel file not found: ' . $filePath);
+            return true;
         }
-        // $spreadsheet = IOFactory::load($filePath);
-        // $sheetData = $spreadsheet->getActiveSheet()->toArray();
 
         foreach ($this->getFileData($filePath) as $line => $row) {
-            if ($line == 0 || $line < 1200) continue;
+            if ($line == 0) continue;
             $first_name = $row[0] ?? '';
             $last_name = $row[1] ?? '';
             $email = $row[2] ?? '';
@@ -75,17 +71,17 @@ class ProfileImport extends Command
                 continue;
             }
             $this->info($line . ' -- Pushing profile to Klaviyo...' . $email);
-            $phone_number = $row[13] ?? '';
+            $phone_number = $row[9] ?? '';
             if (!empty($phone_number)) {
                 $phone_number = self::formatPhoneNumber($phone_number);
             }
             $location = [
-                'address1' => $row[4] ?? '',
-                'address2' => $row[5] ?? '',
-                'city' => $row[7] ?? '',
+                'address1' => $row[3] ?? '',
+                'address2' => $row[4] ?? '',
+                'city' => $row[5] ?? '',
                 'region' => $row[8] ?? '',
-                'country' => $row[10] ?? '',
-                'zip' => $row[12] ?? '',
+                'country' => $row[7] ?? '',
+                'zip' => $row[8] ?? '',
             ];
 
             $location = array_filter($location, function ($value) {
@@ -151,7 +147,8 @@ class ProfileImport extends Command
                 $this->error('Error pushing profile: ' . $e->getMessage());
                 dd();
             }
-            sleep(3); // 避免请求过快
+
+            sleep(rand(5, 8)); // 避免请求过快
         }
 
     }
