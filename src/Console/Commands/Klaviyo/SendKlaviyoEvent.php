@@ -44,6 +44,7 @@ class SendKlaviyoEvent extends Command
         $this->metric_type = $metricType;
         if (empty($this->email)) {
             Utils::sendFeishu('邮件地址为空' . ' 订单ID：' . $orderId . ' . website:' . config('odoo_api.website_url'));
+            return 0;
         }
 
         // 检测是否已发送邮件
