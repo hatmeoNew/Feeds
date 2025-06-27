@@ -1,11 +1,9 @@
 <?php
 namespace NexaMerchant\Feeds\Http\Controllers\Web;
 
-use Illuminate\Foundation\Validation\ValidatesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Spatie\Feed\Feed;
-use Spatie\Feed\Helpers\ResolveFeedItems;
 use Webkul\Product\Repositories\ProductRepository;
 use Webkul\Product\Models\Product;
 
@@ -40,7 +38,10 @@ class FeedsController extends Controller
     {
         //
         $limit = $request->get('limit', 30);
-        $products = Product::where('type', 'configurable')->orderBy("updated_at","desc")->limit($limit)->get();
+        // $products = Product::where('type', 'configurable')->orderBy("updated_at","desc")->limit($limit)->get();
+        // 找出已关联category的商品数据
+        $app = app('Webkul\Product\Repositories\ProductRepository');
+        $products = $app->where('type', 'configurable')->has('categories')->orderBy("updated_at","desc")->limit($limit)->get();
         $items = [];
         foreach($products as $key => $product) {
             $image_url = $product->images->first() ? $product->images->first()->url : '';
