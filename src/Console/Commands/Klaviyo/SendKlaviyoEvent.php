@@ -186,7 +186,7 @@ class SendKlaviyoEvent extends Command
                 $additional['product_url'] = env('SHOP_URL');
             }
 
-            $recommands = array_merge($recommands, $app->getRecommendProduct($additional['product_id'], 3), self::$utmSourceList[$this->metric_type]);
+            $recommands = array_merge($recommands, $app->getRecommendProduct($additional['product_id'], 3, self::$utmSourceList[$this->metric_type]));
 
             array_push($line_items, $additional);
         }
