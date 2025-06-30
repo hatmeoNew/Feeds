@@ -204,6 +204,7 @@ class SendKlaviyoEvent extends Command
                     'quantity'   => $item['quantity'],
                     'image'      => $item['img'],
                     'attributes' => $item['attribute_name'] ?? '',
+                    'product_url' => $item['product_url'],
                 ];
             })->toArray(),
             'username'      => trim($order->shipping_address->first_name . ' ' . $order->shipping_address->last_name),
