@@ -215,6 +215,31 @@ class SendKlaviyoEvent extends Command
             'subject_line'  => $this->getSubjectLine(),
             'recommands'    => $recommands,
             'order_date'    => $date,
+            'trans_data'    => $this->buildTransData(),
+        ];
+    }
+
+    public function buildTransData()
+    {
+        return [
+            'recommend_products'    => trans('email.recommend_products'),
+            'order'                 => trans('email.order'),
+            'thank_you'             => trans('email.thank_you'),
+            'shipping_address'      => trans('email.shipping_address'),
+            'billing_address'       => trans('email.billing_address'),
+            'payment'               => trans('email.payment'),
+            'order_number'          => trans('email.order_number'),
+            'order_date'            => trans('email.order_date'),
+            'subtotal'              => trans('email.subtotal'),
+            'shipping'              => trans('email.shipping'),
+            'discount'              => trans('email.discount'),
+            'total'                 => trans('email.total'),
+            'shipped_notice'        => trans('email.shipped_notice'),
+            'order_summary'         => trans('email.order_summary'),
+            'shipment_items'        => trans('email.shipment_items'),
+            'tracking_number'       => trans('email.tracking_number'),
+            'your_order_on_the_way' => trans('email.your_order_on_the_way'),
+            'contact_us'            => trans('email.contact_us'),
         ];
     }
 
@@ -323,6 +348,7 @@ class SendKlaviyoEvent extends Command
             'subject_line'     => $this->getSubjectLine(),
             'recommands'       => $recommands,
             'order_date'       => $date,
+            'trans_data'       => $this->buildTransData(),
         ];
     }
 
