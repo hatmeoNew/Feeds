@@ -321,7 +321,7 @@ class SendKlaviyoEvent extends Command
         }
 
         Carbon::setLocale(env('APP_LOCALE', 'en'));
-        $date = Carbon::now();
+        $date = Carbon::parse($order->created_at);
         $date = $date->translatedFormat('d. F Y');
 
         return [
