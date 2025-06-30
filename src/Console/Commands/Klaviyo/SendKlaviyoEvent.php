@@ -239,7 +239,9 @@ class SendKlaviyoEvent extends Command
             'shipment_items'        => trans('email.shipment_items'),
             'tracking_number'       => trans('email.tracking_number'),
             'your_order_on_the_way' => trans('email.your_order_on_the_way'),
+            'your_order_on_the_way2' => trans('email.your_order_on_the_way2'),
             'contact_us'            => trans('email.contact_us'),
+            'customer_information'  => trans('email.customer_information'),
         ];
     }
 
