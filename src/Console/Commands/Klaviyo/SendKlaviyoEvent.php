@@ -2,6 +2,7 @@
 
 namespace NexaMerchant\Feeds\Console\Commands\Klaviyo;
 
+use Carbon\Carbon;
 use GuzzleHttp\Client;
 use Webkul\Sales\Models\Order;
 use Illuminate\Console\Command;
@@ -9,6 +10,7 @@ use Illuminate\Support\Facades\DB;
 use Nicelizhi\Shopify\Helpers\Utils;
 use Webkul\Product\Models\Product;
 use Webkul\Product\Models\ProductImage;
+use Webkul\Product\Models\ProductAttributeValue;
 use Webkul\Sales\Repositories\ShipmentRepository;
 
 class SendKlaviyoEvent extends Command
@@ -31,6 +33,12 @@ class SendKlaviyoEvent extends Command
         self::METRIC_TYPE_100 => 'Placed Order',
         self::METRIC_TYPE_200 => 'Fulfilled Order',
         self::METRIC_TYPE_300 => 'Cancelled Order'
+    ];
+
+    static $utmSourceList = [
+        self::METRIC_TYPE_100 => 'recommend',
+        self::METRIC_TYPE_200 => 'shipped',
+        self::METRIC_TYPE_300 => 'recommend'
     ];
 
     public function handle()
@@ -73,6 +81,12 @@ class SendKlaviyoEvent extends Command
                 $sendRes = $this->fulfilledOrder($order, $shipment);
                 dump('send res', $sendRes);
             }
+        }
+
+        // 取消
+        if ($metricType == self::METRIC_TYPE_300) {
+            $sendRes = $this->cancelledOrder($order);
+            dump('send res', $sendRes);
         }
 
         return true;
@@ -120,9 +134,33 @@ class SendKlaviyoEvent extends Command
         return $sendRes;
     }
 
+    protected function cancelledOrder($order)
+    {
+        $properties = $this->buildEventProperties($order);
+        // dd($properties);
+
+        $sendRes = $this->sendEvent(self::$eventList[self::METRIC_TYPE_300], $properties);
+
+        // 数据入库 & 日志处理
+        DB::table('email_send_records')->insert(array_merge(
+            [
+                'order_id' => $order->id,
+                'email' => $order->customer_email,
+                'metric_name' => self::$eventList[self::METRIC_TYPE_300],
+                'created_at' => date('Y-m-d H:i:s'),
+                'updated_at' => date('Y-m-d H:i:s'),
+            ],
+            $sendRes
+        ));
+
+        return $sendRes;
+    }
+
     protected function buildEventPropertiesFulfilled($order, $shipment)
     {
         $line_items = [];
+        $recommands = [];
+        $app = app('Webkul\Product\Repositories\ProductRepository');
         foreach ($shipment->items as $shipmentItem) {
 
             $additional = $shipmentItem['additional'];
@@ -141,11 +179,23 @@ class SendKlaviyoEvent extends Command
             $additional['price'] = $shipmentItem['price'];
             $additional['name'] = $shipmentItem['name'];
 
+            $url_key = ProductAttributeValue::query()->where('product_id', $additional['product_id'])->where('attribute_id', 3)->value('text_value');
+            if (!empty($url_key) && ($variant_id != env('ONEBUY_RETURN_SHIPPING_INSURANCE_PRODUCT_ID'))) {
+                $additional['product_url'] = rtrim(env('SHOP_URL'), '/') . '/products/' . $url_key;
+            } else {
+                $additional['product_url'] = env('SHOP_URL');
+            }
+
+            $recommands = array_merge($recommands, $app->getRecommendProduct($additional['product_id'], 3), self::$utmSourceList[$this->metric_type]);
+
             array_push($line_items, $additional);
         }
 
         $logo = asset('storage/logo.webp');
         $logo = str_replace(['shop.', 'offer.'], 'api.', $logo);
+        Carbon::setLocale(env('APP_LOCALE', 'en'));
+        $date = Carbon::now();
+        $date = $date->translatedFormat('d. F Y');
         return [
             'order_number'    => config('odoo_api.order_pre') . '#' . $order->id,
             'items'           => collect($line_items)->map(function($item) {
@@ -160,9 +210,11 @@ class SendKlaviyoEvent extends Command
             'logo'          => $logo,
             'carrier_title' => $shipment->carrier_title,
             'track_number'  => $shipment->track_number,
-            'shop_email'       => core()->getConfigData('emails.configure.email_settings.shop_email_from') ?: 'vip@kundies.com',
-            'shop_name'        => core()->getConfigData('emails.configure.email_settings.sender_name') ?: 'Kundies',
-            'subject_line'     => $this->getSubjectLine()
+            'shop_email'    => core()->getConfigData('emails.configure.email_settings.shop_email_from') ?: 'vip@kundies.com',
+            'shop_name'     => core()->getConfigData('emails.configure.email_settings.sender_name') ?: 'Kundies',
+            'subject_line'  => $this->getSubjectLine(),
+            'recommands'    => $recommands,
+            'order_date'    => $date,
         ];
     }
 
@@ -193,6 +245,10 @@ class SendKlaviyoEvent extends Command
      */
     protected function buildEventProperties(Order $order): array
     {
+        $app = app('Webkul\Product\Repositories\ProductRepository');
+
+        $recommands = [];
+
         $line_items = [];
         foreach ($order->items as $orderItem) {
 
@@ -211,14 +267,34 @@ class SendKlaviyoEvent extends Command
 
             $additional['price'] = $orderItem['price'];
             $additional['name'] = $orderItem['name'];
+            $url_key = ProductAttributeValue::query()->where('product_id', $orderItem['product_id'])->where('attribute_id', 3)->value('text_value');
+            if (!empty($url_key) && ($variant_id != env('ONEBUY_RETURN_SHIPPING_INSURANCE_PRODUCT_ID'))) {
+                $additional['product_url'] = rtrim(env('SHOP_URL'), '/') . '/products/' . $url_key;
+            } else {
+                $additional['product_url'] = env('SHOP_URL');
+            }
+
+            $recommands = array_merge($recommands, $app->getRecommendProduct($orderItem['product_id'], 3), self::$utmSourceList[$this->metric_type]);
 
             array_push($line_items, $additional);
+        }
+
+        if ($this->metric_type == self::METRIC_TYPE_300) {
+            // dd($recommands);
+            // dd($line_items);
+
+            // Carbon::now()->setLocale(env('APP_LOCALE', 'ja'));
+            // dd(Carbon::now()->toDateString());
         }
 
         $payment = ucfirst($order->payment->method);
         if (stripos($payment, 'paypal') !== false) {
             $payment = 'PayPal';
         }
+
+        Carbon::setLocale(env('APP_LOCALE', 'en'));
+        $date = Carbon::now();
+        $date = $date->translatedFormat('d. F Y');
 
         return [
             'order_number'    => config('odoo_api.order_pre') . '#' . $order->id,//$order->increment_id,
@@ -235,6 +311,7 @@ class SendKlaviyoEvent extends Command
                     'price'      => core()->currency($item['price']),
                     'image'      => $item['img'],
                     'attributes' => $item['attribute_name'] ?? '',
+                    'product_url' => $item['product_url']
                 ];
             })->toArray(),
             'billing_address'  => collect($order->billing_address)->only(['country', 'city', 'phone', 'address1'])->toArray(),
@@ -243,7 +320,9 @@ class SendKlaviyoEvent extends Command
             'logo'             => asset('storage/logo.webp'),
             'shop_email'       => core()->getConfigData('emails.configure.email_settings.shop_email_from') ?: 'vip@kundies.com',
             'shop_name'        => core()->getConfigData('emails.configure.email_settings.sender_name') ?: 'Kundies',
-            'subject_line'     => $this->getSubjectLine()
+            'subject_line'     => $this->getSubjectLine(),
+            'recommands'       => $recommands,
+            'order_date'       => $date,
         ];
     }
 
