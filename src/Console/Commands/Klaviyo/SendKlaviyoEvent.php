@@ -249,6 +249,7 @@ class SendKlaviyoEvent extends Command
             'contact_us'              => trans('email.contact_us'),
             'customer_information'    => trans('email.customer_information'),
             'view_details'            => trans('email.view_details'),
+            'buy_now'                 => trans('email.buy_now'),
         ];
     }
 
