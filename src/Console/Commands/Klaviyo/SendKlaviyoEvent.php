@@ -191,6 +191,11 @@ class SendKlaviyoEvent extends Command
             array_push($line_items, $additional);
         }
 
+        if ($recommands) {
+            // 消重
+            $recommands = collect($recommands)->unique('id')->values()->toArray();
+        }
+
         $logo = asset('storage/logo.webp');
         $logo = str_replace(['shop.', 'offer.'], 'api.', $logo);
         Carbon::setLocale(env('APP_LOCALE', 'en'));
@@ -305,6 +310,11 @@ class SendKlaviyoEvent extends Command
             $recommands = array_merge($recommands, $app->getRecommendProduct($orderItem['product_id'], 3, self::$utmSourceList[$this->metric_type]));
 
             array_push($line_items, $additional);
+        }
+
+        if ($recommands) {
+            // 消重
+            $recommands = collect($recommands)->unique('id')->values()->toArray();
         }
 
         if ($this->metric_type == self::METRIC_TYPE_300) {
