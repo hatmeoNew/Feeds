@@ -125,7 +125,7 @@ class SendKlaviyoEvent extends Command
         // dd($line_items);
 
         $logo = asset('storage/logo.webp');
-        $logo = str_replace(['shop.', 'offer.'], 'api.', $logo);
+        $logo = str_replace(['shop.', 'offer.', 'shop-api.'], 'api.', $logo);
         Carbon::setLocale(env('APP_LOCALE', 'en'));
         $date = Carbon::now();
         $date = $date->translatedFormat('d. F Y');
@@ -208,7 +208,7 @@ class SendKlaviyoEvent extends Command
         $line_items = $this->_formatOrderItem($order);
 
         $logo = asset('storage/logo.webp');
-        $logo = str_replace('shop.', 'api.', $logo);
+        $logo = str_replace(['shop.', 'shop-api.'], 'api.', $logo);
         Carbon::setLocale(env('APP_LOCALE', 'en'));
         $date = Carbon::parse($order->created_at);
         $date = $date->translatedFormat('d. F Y');
