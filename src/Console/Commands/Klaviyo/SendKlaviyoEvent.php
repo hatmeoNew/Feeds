@@ -2,6 +2,7 @@
 
 namespace NexaMerchant\Feeds\Console\Commands\Klaviyo;
 
+use Carbon\Carbon;
 use GuzzleHttp\Client;
 use Webkul\Sales\Models\Order;
 use Illuminate\Console\Command;
@@ -125,6 +126,9 @@ class SendKlaviyoEvent extends Command
 
         $logo = asset('storage/logo.webp');
         $logo = str_replace(['shop.', 'offer.'], 'api.', $logo);
+        Carbon::setLocale(env('APP_LOCALE', 'en'));
+        $date = Carbon::now();
+        $date = $date->translatedFormat('d. F Y');
         return [
             'order_number'    => config('odoo_api.order_pre') . '#' . $order->id,
             'items'           => collect($line_items)->map(function($item) {
@@ -141,7 +145,36 @@ class SendKlaviyoEvent extends Command
             'track_number'  => $shipment->track_number,
             'shop_email'    => $this->getShopEmail(),
             'shop_name'     => core()->getConfigData('emails.configure.email_settings.shop_email_name') ?: 'customer',
-            'subject_line'  => $this->getSubjectLine()
+            'subject_line'  => $this->getSubjectLine(),
+            'recommands'    => [],
+            'order_date'    => $date,
+            'trans_data'    => $this->buildTransData(),
+        ];
+    }
+
+    public function buildTransData()
+    {
+        return [
+            'recommend_products'    => trans('email.recommend_products'),
+            'order'                 => trans('email.order'),
+            'thank_you'             => trans('email.thank_you'),
+            'shipping_address'      => trans('email.shipping_address'),
+            'billing_address'       => trans('email.billing_address'),
+            'payment'               => trans('email.payment'),
+            'order_number'          => trans('email.order_number'),
+            'order_date'            => trans('email.order_date'),
+            'subtotal'              => trans('email.subtotal'),
+            'shipping'              => trans('email.shipping'),
+            'discount'              => trans('email.discount'),
+            'total'                 => trans('email.total'),
+            'shipped_notice'        => trans('email.shipped_notice'),
+            'order_summary'         => trans('email.order_summary'),
+            'shipment_items'        => trans('email.shipment_items'),
+            'tracking_number'       => trans('email.tracking_number'),
+            'your_order_on_the_way' => trans('email.your_order_on_the_way'),
+            'your_order_on_the_way_2' => trans('email.your_order_on_the_way_2'),
+            'contact_us'            => trans('email.contact_us'),
+            'customer_information'  => trans('email.customer_information'),
         ];
     }
 
@@ -176,6 +209,9 @@ class SendKlaviyoEvent extends Command
 
         $logo = asset('storage/logo.webp');
         $logo = str_replace('shop.', 'api.', $logo);
+        Carbon::setLocale(env('APP_LOCALE', 'en'));
+        $date = Carbon::parse($order->created_at);
+        $date = $date->translatedFormat('d. F Y');
 
         $payment = ucfirst($order->payment->method);
         if (stripos($payment, 'paypal') !== false) {
@@ -205,7 +241,10 @@ class SendKlaviyoEvent extends Command
             'logo'             => $logo,
             'shop_email'       => $this->getShopEmail(),                                                                          //core()->getConfigData('emails.configure.email_settings.shop_email_from') ?: 'vip@kundies.com'
             'shop_name'        => core()->getConfigData('emails.configure.email_settings.shop_email_name') ?: 'customer',
-            'subject_line'     => $this->getSubjectLine()
+            'subject_line'     => $this->getSubjectLine(),
+            'recommands'    => [],
+            'order_date'    => $date,
+            'trans_data'    => $this->buildTransData(),
         ];
     }
 
