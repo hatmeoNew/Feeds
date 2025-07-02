@@ -227,6 +227,7 @@ class SendKlaviyoEvent extends Command
 
     public function buildTransData()
     {
+
         return [
             'recommend_products'      => trans('email.recommend_products'),
             'order'                   => trans('email.order'),
@@ -250,6 +251,10 @@ class SendKlaviyoEvent extends Command
             'customer_information'    => trans('email.customer_information'),
             'view_details'            => trans('email.view_details'),
             'buy_now'                 => trans('email.buy_now'),
+            'cash_on_delivery'        => trans('email.cash_on_delivery'),
+            'paypal_payment'          => trans('email.paypal_payment'),
+            'visa_mastercard_payment' => trans('email.visa_mastercard_payment'),
+            'unsubscribe'             => trans('email.unsubscribe'),
         ];
     }
 
@@ -327,10 +332,10 @@ class SendKlaviyoEvent extends Command
             // dd(Carbon::now()->toDateString());
         }
 
-        $payment = ucfirst($order->payment->method);
-        if (stripos($payment, 'paypal') !== false) {
-            $payment = 'PayPal';
-        }
+        // $payment = ucfirst($order->payment->method);
+        // if (stripos($payment, 'paypal') !== false) {
+        //     $payment = 'PayPal';
+        // }
 
         Carbon::setLocale(env('APP_LOCALE', 'en'));
         $date = Carbon::parse($order->created_at);
@@ -343,7 +348,7 @@ class SendKlaviyoEvent extends Command
             'discount_amount' => core()->currency($order->discount_amount),
             'shipping_amount' => core()->currency($order->shipping_amount),
             'order_time'      => date('Y-m-d H:i:s', strtotime($order->created_at)),
-            'payment'         => $payment,
+            'payment'         => self::getTransPayment($order->payment->method),
             'items'           => collect($line_items)->map(function($item) {
                 return [
                     'sku'        => $item['name'],
@@ -430,5 +435,22 @@ class SendKlaviyoEvent extends Command
             'failure_reason' => ''
         ];
 
+    }
+
+    public static function getTransPayment($paymentMethod)
+    {
+        $transPaymentList = [
+            'cash_on_delivery'        => trans('email.cash_on_delivery'),
+            'paypal_payment'          => trans('email.paypal_payment'),
+            'visa_mastercard_payment' => trans('email.visa_mastercard_payment'),
+        ];
+
+        $paymentKey = [
+            'codpayment'          => 'cash_on_delivery',
+            'paypal_smart_button' => 'paypal_payment',
+            'airwallex'           => 'visa_mastercard_payment',
+        ];
+
+        return $transPaymentList[$paymentKey[$paymentMethod]] ?? '';
     }
 }
